@@ -2,21 +2,25 @@
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_FUGR" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
-   <AREAT>FM For Chapter07</AREAT>
+   <AREAT>ADT Classic Outline</AREAT>
    <INCLUDES>
-    <SOBJ_NAME>LZ_ADTBOOK_CHAPTER07TOP</SOBJ_NAME>
-    <SOBJ_NAME>SAPLZ_ADTBOOK_CHAPTER07</SOBJ_NAME>
+    <SOBJ_NAME>LZ_ADT_CLASSIC_OUTLINETOP</SOBJ_NAME>
+    <SOBJ_NAME>SAPLZ_ADT_CLASSIC_OUTLINE</SOBJ_NAME>
    </INCLUDES>
    <FUNCTIONS>
     <item>
-     <FUNCNAME>Z_ADT_BOOK_GET_TREE_FOR_CLASS</FUNCNAME>
+     <FUNCNAME>Z_ADTCO_GET_OBJECT_TREE</FUNCNAME>
      <REMOTE_CALL>X</REMOTE_CALL>
-     <SHORT_TEXT>Get an Outline Tree for Class</SHORT_TEXT>
+     <SHORT_TEXT>Gets Outline Tree for Object</SHORT_TEXT>
      <REMOTE_BASXML>X</REMOTE_BASXML>
      <IMPORT>
       <RSIMP>
-       <PARAMETER>CLASS_NAME</PARAMETER>
-       <TYP>SEOCPDKEY-CLSNAME</TYP>
+       <PARAMETER>OBJECT_NAME</PARAMETER>
+       <TYP>EU_LNAME</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>OBJECT_TYPE</PARAMETER>
+       <TYP>SEU_OBJ</TYP>
       </RSIMP>
      </IMPORT>
      <EXPORT>
@@ -27,7 +31,11 @@
      </EXPORT>
      <DOCUMENTATION>
       <RSFDO>
-       <PARAMETER>CLASS_NAME</PARAMETER>
+       <PARAMETER>OBJECT_NAME</PARAMETER>
+       <KIND>P</KIND>
+      </RSFDO>
+      <RSFDO>
+       <PARAMETER>OBJECT_TYPE</PARAMETER>
        <KIND>P</KIND>
       </RSFDO>
       <RSFDO>
@@ -37,9 +45,9 @@
      </DOCUMENTATION>
     </item>
     <item>
-     <FUNCNAME>Z_ADT_BOOK_GET_URI_FOR_NODE</FUNCNAME>
+     <FUNCNAME>Z_ADTCO_GET_URI_FOR_TREE_NODE</FUNCNAME>
      <REMOTE_CALL>X</REMOTE_CALL>
-     <SHORT_TEXT>Get an ADT URI for selected Node</SHORT_TEXT>
+     <SHORT_TEXT>Gets ADT URI for tree Node</SHORT_TEXT>
      <REMOTE_BASXML>X</REMOTE_BASXML>
      <IMPORT>
       <RSIMP>
@@ -47,8 +55,12 @@
        <TYP>SNODETEXT</TYP>
       </RSIMP>
       <RSIMP>
-       <PARAMETER>CLASS_NAME</PARAMETER>
-       <TYP>SEOCPDKEY-CLSNAME</TYP>
+       <PARAMETER>OBJECT_NAME</PARAMETER>
+       <TYP>EU_LNAME</TYP>
+      </RSIMP>
+      <RSIMP>
+       <PARAMETER>OBJECT_TYPE</PARAMETER>
+       <TYP>SEU_OBJ</TYP>
       </RSIMP>
      </IMPORT>
      <EXPORT>
@@ -63,7 +75,11 @@
        <KIND>P</KIND>
       </RSFDO>
       <RSFDO>
-       <PARAMETER>CLASS_NAME</PARAMETER>
+       <PARAMETER>OBJECT_NAME</PARAMETER>
+       <KIND>P</KIND>
+      </RSFDO>
+      <RSFDO>
+       <PARAMETER>OBJECT_TYPE</PARAMETER>
        <KIND>P</KIND>
       </RSFDO>
       <RSFDO>

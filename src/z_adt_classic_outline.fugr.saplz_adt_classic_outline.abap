@@ -1,8 +1,8 @@
 *******************************************************************
 *   System-defined Include-files.                                 *
 *******************************************************************
-  INCLUDE LZ_ADTBOOK_CHAPTER07TOP.           " Global Declarations
-  INCLUDE LZ_ADTBOOK_CHAPTER07UXX.           " Function Modules
+  INCLUDE LZ_ADT_CLASSIC_OUTLINETOP.           " Global Declarations
+  INCLUDE LZ_ADT_CLASSIC_OUTLINEUXX.           " Function Modules
 
 *******************************************************************
 *   User-defined Include-files (if necessary).                    *
