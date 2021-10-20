@@ -11,12 +11,16 @@ CLASS zcl_adtco_uri_mapper DEFINITION
                                    RETURNING VALUE(uri)         TYPE string.
   PROTECTED SECTION.
   PRIVATE SECTION.
+    CONSTANTS: BEGIN OF prefix,
+                 reps         TYPE string VALUE 'REPS' ##NO_TEXT,
+                 fugr_pattern TYPE string VALUE 'FUGR/*' ##NO_TEXT,
+               END OF prefix.
     CLASS-DATA: uri_mapper TYPE REF TO zcl_adtco_uri_mapper.
     METHODS build_object_name
       IMPORTING
-        node                 TYPE REF TO snodetext
+        node               TYPE REF TO snodetext
       RETURNING
-        VALUE(object_name)   TYPE eu_lname.
+        VALUE(object_name) TYPE eu_lname.
     METHODS build_enclosed_object
       IMPORTING
         object_name            TYPE eu_lname
@@ -55,10 +59,15 @@ CLASS zcl_adtco_uri_mapper DEFINITION
         VALUE(uri)           TYPE string.
     METHODS build_internal_name
       IMPORTING
-        local_container_name TYPE seu_text
-        local_object_name    TYPE seu_text
+        node                 TYPE snodetext
       RETURNING
-        VALUE(internal_name) TYPE seu_text .
+        VALUE(internal_name) TYPE string .
+    METHODS get_program_or_include
+      IMPORTING
+        node                 TYPE snodetext
+        original_object_name TYPE eu_lname
+      RETURNING
+        VALUE(type)          TYPE string.
 ENDCLASS.
 
 
@@ -73,14 +82,14 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
 
   METHOD build_node_type.
     node_type = node-type.
-    IF node-type+1(3) EQ 'OT' AND node-text8 IS NOT INITIAL.
-      node_type+1(3) = 'IT'.
+    IF node-type+1(3) EQ swbm_c_type_cls_type AND node-text8 IS NOT INITIAL.
+      node_type+1(3) = swbm_c_type_intf_type.
     ENDIF.
-    IF node-type+1(3) EQ 'OA' AND node-text8 IS NOT INITIAL.
-      node_type+1(3) = 'IA'.
+    IF node-type+1(3) EQ swbm_c_type_cls_attribute AND node-text8 IS NOT INITIAL.
+      node_type+1(3) = swbm_c_type_intf_attribute.
     ENDIF.
-        IF node-type EQ 'OONN' AND node-text8 IS NOT INITIAL.
-      node_type = 'OPN'.
+    IF node-type+1(3) EQ swbm_c_type_cls_lintf_intf AND node-text8 IS NOT INITIAL.
+      node_type+1(3) = swbm_c_type_prg_intf_def.
     ENDIF.
   ENDMETHOD.
 
@@ -200,15 +209,22 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
            swbm_c_type_cls_lintf_intf .
         object_name = |{ node->text9+4(36) }                                   { node->text1 }|.
       WHEN swbm_c_type_cls_mtd_impl OR swbm_c_type_intf_type.
-        object_name = node->text8.
-      WHEN swbm_c_type_intf_type OR
-           swbm_c_type_intf_attribute.
-        SPLIT node->text8 AT '~' INTO DATA(object) object_name.
-        IF object_name IS INITIAL.
-          IF strlen( node->text9 ) GE 4 AND node->text9(4) EQ 'INTF'.
-            object_name = node->text9.
-            SHIFT object_name BY 4 PLACES LEFT.
+        IF node->text8 IS NOT INITIAL.
+          object_name = node->text8.
+        ELSE.
+          object_name = node->text1.
+        ENDIF.
+      WHEN swbm_c_type_intf_attribute.
+        IF node->text8 IS NOT INITIAL.
+          SPLIT node->text8 AT '~' INTO DATA(object) object_name.
+          IF object_name IS INITIAL.
+            IF strlen( node->text9 ) GE 4 AND node->text9(4) EQ 'INTF'.
+              object_name = node->text9.
+              SHIFT object_name BY 4 PLACES LEFT.
+            ENDIF.
           ENDIF.
+        ELSE.
+          object_name = node->text1.
         ENDIF.
       WHEN OTHERS.
         object_name = node->text1 .
@@ -236,7 +252,11 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
         ENDIF.
       WHEN swbm_c_type_intf_type OR
            swbm_c_type_intf_attribute.
-        SPLIT node->text8 AT '~' INTO enclosed_object DATA(tmp_object_name).
+        IF node->text8 IS NOT INITIAL.
+          SPLIT node->text8 AT '~' INTO enclosed_object DATA(tmp_object_name).
+        ELSE.
+          enclosed_object = object_name.
+        ENDIF.
       WHEN OTHERS.
         enclosed_object = get_object_name(
           original_object_name = object_name
@@ -261,71 +281,72 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_uri_directly.
-    IF node-type EQ 'OONT' AND node-text9(4) EQ 'REPS'.
-      uri = |/sap/bc/adt/programs/programs/{ node-text8(40) }/source/main#type=PROG%2FPNY;name={ build_internal_name(
-                                                                                                   local_container_name = CONV #( node-text8+40(30) )
-                                                                                                   local_object_name    = node-text1 )  }|.
-    ELSEIF node-type EQ 'OOND' AND node-text9(4) EQ 'REPS'.
-      uri = |/sap/bc/adt/programs/programs/{ node-text8(40) }/source/main#type=PROG%2FPNM;name={ build_internal_name(
-                                                                                                   local_container_name = CONV #( node-text8+40(30) )
-                                                                                                   local_object_name    = node-text1 )  }|.
-    ELSEIF node-type EQ 'OONA' AND node-text9(4) EQ 'REPS'.
-      uri = |/sap/bc/adt/programs/programs/{ node-text8(40) }/source/main#type=PROG%2FPNA;name={ build_internal_name(
-                                                                                                   local_container_name = CONV #( node-text8+40(30) )
-                                                                                                   local_object_name    = node-text1 )  }|.
-    ELSEIF node-type EQ 'OONN' AND node-text9(4) EQ 'REPS'.
-      uri = |/sap/bc/adt/programs/programs/{ node-text8(40) }/source/main#type=PROG%2FPNN;name={ build_internal_name(
-                                                                                                   local_container_name = CONV #( node-text8+40(30) )
-                                                                                                   local_object_name    = node-text1 )  }|.
-    ELSEIF node-type EQ 'OOLD' AND node-text9(4) EQ 'REPS'.
+    IF node-type EQ 'OONT' AND node-text9(4) EQ prefix-reps.
+      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
+                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPNY;name={ build_internal_name( node )  }|.
+    ELSEIF node-type EQ 'OOND' AND node-text9(4) EQ prefix-reps.
+      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
+                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPNM;name={ build_internal_name( node )  }|.
+    ELSEIF node-type EQ 'OONA' AND node-text9(4) EQ prefix-reps.
+      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
+                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPNA;name={ build_internal_name( node )  }|.
+    ELSEIF node-type EQ 'OONN' AND node-text9(4) EQ prefix-reps.
+      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
+                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPNN;name={ build_internal_name( node )  }|.
+    ELSEIF node-type EQ 'OOLD' AND node-text9(4) EQ prefix-reps.
 
-      IF original_object_type CP 'FUGR/*'.
-        uri = |/sap/bc/adt/programs/includes/{ node-text8(40) }/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f{ original_object_name }#| &&
-        |type=PROG%2FPLM;name={ escape( val = build_internal_name(
-                                                                                                    local_container_name = CONV #( node-text8+40(30) )
-                                                                                                    local_object_name    = node-text1 ) format = cl_abap_format=>e_uri )  }|.
+      IF original_object_type CP prefix-fugr_pattern.
+        uri = |includes/{ node-text8(40) }/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f{ original_object_name }#| &&
+        |type=PROG%2FPLM;name={ escape( val = build_internal_name( node ) format = cl_abap_format=>e_uri )  }|.
       ELSE.
-        uri = |/sap/bc/adt/programs/programs/{ node-text8(40) }/source/main#type=PROG%2FPLM;name={ escape( val = build_internal_name(
-                                                                                                     local_container_name = CONV #( node-text8+40(30) )
-                                                                                                     local_object_name    = node-text1 ) format = cl_abap_format=>e_uri )  }|.
+        uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
+                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPLM;name={ escape( val = build_internal_name( node ) format = cl_abap_format=>e_uri )  }|.
       ENDIF.
-    ELSEIF node-type EQ 'OOLI' AND node-text9(4) EQ 'REPS'.
-      IF original_object_type  CP 'FUGR/*'.
-        uri = |/sap/bc/adt/programs/includes/{ node-text8(40) }/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f{ original_object_name }#| &&
-        |type=PROG%2FPLM;name={ escape( val = build_internal_name(
-                                                                                                    local_container_name = CONV #( node-text8+40(30) )
-                                                                                                    local_object_name    = node-text1 ) format = cl_abap_format=>e_uri )  }|.
+    ELSEIF node-type EQ 'OOLI' AND node-text9(4) EQ prefix-reps.
+      IF original_object_type  CP prefix-fugr_pattern.
+        uri = |includes/{ node-text8(40) }/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f{ original_object_name }#| &&
+        |type=PROG%2FPLM;name={ escape( val = build_internal_name( node ) format = cl_abap_format=>e_uri )  }|.
       ELSE.
-        uri = |/sap/bc/adt/programs/programs/{ node-text8(40) }/source/main#type=PROG%2FPLM;name={ build_internal_name(
-                                                                                                     local_container_name = CONV #( node-text8+40(30) )
-                                                                                                     local_object_name    = node-text1 )  }|.
+        uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
+                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPLM;name={ build_internal_name( node )  }|.
       ENDIF.
-    ELSEIF node-type EQ 'OOLA' AND node-text9(4) EQ 'REPS'.
-      IF original_object_type CP 'FUGR/*'.
-        uri = |/sap/bc/adt/programs/includes/{ node-text8(40) }/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f{ original_object_name }#| &&
-   |type=PROG%2FPLA;name={ escape( val = build_internal_name(
-                                                                                               local_container_name = CONV #( node-text8+40(30) )
-                                                                                               local_object_name    = node-text1 ) format = cl_abap_format=>e_uri )  }|.
+    ELSEIF node-type EQ 'OOLA' AND node-text9(4) EQ prefix-reps.
+      IF original_object_type CP prefix-fugr_pattern.
+        uri = |includes/{ node-text8(40) }/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f{ original_object_name }#| &&
+   |type=PROG%2FPLA;name={ escape( val = build_internal_name( node ) format = cl_abap_format=>e_uri )  }|.
       ELSE.
-        uri = |/sap/bc/adt/programs/programs/{ node-text8(40) }/source/main#type=PROG%2FPLA;name={ build_internal_name(
-                                                                                                     local_container_name = CONV #( node-text8+40(30) )
-                                                                                                     local_object_name    = node-text1 )  }|.
+        uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
+                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPLA;name={ build_internal_name( node )  }|.
       ENDIF.
-    ELSEIF node-type EQ 'OOLT' AND node-text9(4) EQ 'REPS'.
-      uri = |/sap/bc/adt/programs/programs/{ node-text8(40) }/source/main#type=PROG%2FPLY;name={ build_internal_name(
-                                                                                                   local_container_name = CONV #( node-text8+40(30) )
-                                                                                                   local_object_name    = node-text1 )  }|.
-    ELSEIF node-type EQ 'OOLN' AND node-text9(4) EQ 'REPS'.
-      uri = |/sap/bc/adt/programs/programs/{ node-text8(40) }/source/main#type=PROG%2FPN;name={  node-text1  }|.
+    ELSEIF node-type EQ 'OOLT' AND node-text9(4) EQ prefix-reps.
+      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
+                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPLY;name={ build_internal_name( node )  }|.
+    ELSEIF node-type EQ 'OOLN' AND node-text9(4) EQ prefix-reps.
+      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
+                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPN;name={  node-text1  }|.
     ENDIF.
 
 
-
+    IF uri IS NOT INITIAL.
+      uri = |/sap/bc/adt/programs/{ uri }|.
+    ENDIF.
   ENDMETHOD.
 
   METHOD build_internal_name.
-    internal_name(30) = local_container_name.
-    internal_name+30(32) = local_object_name.
+    internal_name = |{ node-text8+40(30) WIDTH = 30  }{ node-text1 }|.
+  ENDMETHOD.
+
+
+  METHOD get_program_or_include.
+    DATA: program_name TYPE trdir-name,
+          program_type TYPE trdir-subc.
+    program_name = node-text8.
+    SELECT SINGLE subc INTO @program_type FROM trdir WHERE name EQ @program_name.
+    IF program_type EQ 'I'.
+      type = 'includes'.
+    ELSE.
+      type = 'programs'.
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

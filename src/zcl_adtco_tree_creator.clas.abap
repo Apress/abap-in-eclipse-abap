@@ -32,7 +32,7 @@ CLASS zcl_adtco_tree_creator DEFINITION
         VALUE(description) TYPE char72.
     METHODS get_counter
       IMPORTING
-        tree            TYPE snodetab
+        tree           TYPE snodetab
       RETURNING
         VALUE(counter) TYPE i.
     METHODS get_subclasses
@@ -58,7 +58,20 @@ CLASS zcl_adtco_tree_creator IMPLEMENTATION.
         objectlist_not_found = 1
         OTHERS               = 2.
     IF sy-subrc <> 0.
-      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+      IF object_type EQ 'REPS'.
+        CALL FUNCTION 'WB_TREE_RETURN_OBJECT_LIST'
+          EXPORTING
+            treename     = conv eu_t_name(  |PG_{ object_name }| )
+            refresh      = 'X'
+          TABLES
+            nodetab      = tree
+          EXCEPTIONS
+            not_existing = 1
+            OTHERS       = 2.
+        IF sy-subrc <> 0.
+            MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+        ENDIF.
+      ENDIF.
     ENDIF.
     add_sublcasses( EXPORTING original_object_name = object_name
                               original_object_type = object_type
@@ -88,8 +101,8 @@ CLASS zcl_adtco_tree_creator IMPLEMENTATION.
 
     ASSIGN tree[ type = 'COU' ] TO FIELD-SYMBOL(<parent>).
     IF sy-subrc EQ 0.
-      data(counter) = get_counter( tree ).
-      data(subclasses) = get_subclasses( conv #( original_object_name ) ).
+      DATA(counter) = get_counter( tree ).
+      DATA(subclasses) = get_subclasses( CONV #( original_object_name ) ).
       LOOP AT subclasses ASSIGNING FIELD-SYMBOL(<subclass>).
         IF <parent>-child IS INITIAL.
           <parent>-child = counter.
@@ -113,7 +126,7 @@ CLASS zcl_adtco_tree_creator IMPLEMENTATION.
 
   METHOD get_subclasses.
     subclasses =  CAST cl_oo_class( cl_oo_class=>get_instance( CONV #( class_name ) ) )->get_subclasses( ).
-    sort subclasses by clsname.
+    SORT subclasses BY clsname.
   ENDMETHOD.
 
 ENDCLASS.
