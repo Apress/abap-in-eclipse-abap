@@ -90,6 +90,11 @@ CLASS zcl_adtco_tree_creator IMPLEMENTATION.
         INTO object_name
         WHERE funcname = original_object_name.
         SHIFT object_name BY 4 PLACES LEFT.
+      WHEN 'FUGR/I'.
+        object_name = original_object_name.
+        SHIFT object_name BY 1 PLACES LEFT.
+        data(lenght) = strlen( object_name ) - 3.
+        object_name = object_name(lenght).
       WHEN OTHERS.
         object_name = original_object_name.
     ENDCASE.
