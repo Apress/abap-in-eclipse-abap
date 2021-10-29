@@ -307,6 +307,7 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
         SELECT SINGLE pname FROM tfdir
         INTO object_name
         WHERE funcname = original_object_name.
+        SHIFT object_name BY 4 PLACES LEFT.
     ENDCASE.
   ENDMETHOD.
 
