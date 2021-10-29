@@ -68,6 +68,19 @@ CLASS zcl_adtco_uri_mapper DEFINITION
         original_object_name TYPE eu_lname
       RETURNING
         VALUE(type)          TYPE string.
+    METHODS get_FG_name_from_include
+      IMPORTING
+        original_object_name TYPE eu_lname
+        original_object_type TYPE seu_obj
+      RETURNING
+        VALUE(object_name)   TYPE eu_lname.
+    METHODS update_object_name_for_FG
+      IMPORTING
+        original_object_type TYPE seu_obj
+        original_object_name TYPE eu_lname
+      RETURNING
+        VALUE(object_name)   TYPE eu_lname.
+
 ENDCLASS.
 
 
@@ -276,19 +289,27 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
       WHEN 'FUGR/F'.
         object_name = |SAPL{  original_object_name }|.
       WHEN 'FUGR/I'.
-        object_name = original_object_name.
-        SHIFT object_name BY 1 PLACES LEFT.
-        DATA(lenght) = strlen( object_name ) - 3.
-        object_name = object_name(lenght).
+        object_name = |SAPL{ get_FG_name_from_include(  original_object_type = original_object_type
+                                                        original_object_name = original_object_name ) }|.
       WHEN OTHERS.
         object_name = original_object_name.
     ENDCASE.
   ENDMETHOD.
 
-  METHOD get_uri_directly.
+  METHOD get_FG_name_from_include.
+    CHECK original_object_type EQ 'FUGR/I'.
+    object_name = original_object_name.
+    SHIFT object_name BY 1 PLACES LEFT.
+    DATA(lenght) = strlen( object_name ) - 3.
+    object_name = object_name(lenght).
 
-    original_object_name = get_object_name( original_object_name = original_object_name
-                                            original_object_type = original_object_type ).
+  ENDMETHOD.
+
+
+
+  METHOD get_uri_directly.
+    original_object_name = update_object_name_for_FG( original_object_type = original_object_type
+                                                      original_object_name = original_object_name ).
     IF node-type EQ 'OONT' AND node-text9(4) EQ prefix-reps.
       uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
                                                             }/{ node-text8(40) }/source/main#type=PROG%2FPNY;name={ build_internal_name( node )  }|.
@@ -343,6 +364,26 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
       ENDIF.
     ENDIF.
   ENDMETHOD.
+
+  METHOD update_object_name_for_FG.
+
+    IF original_object_type CP prefix-fugr_pattern.
+      DATA(fg_name) = get_fg_name_from_include(
+        original_object_name = original_object_name
+        original_object_type = original_object_type
+      ).
+      IF fg_name IS NOT INITIAL.
+        object_name = fg_name.
+      ELSE.
+        object_name = original_object_name.
+      ENDIF.
+    ELSE.
+      object_name = original_object_name.
+    ENDIF.
+
+  ENDMETHOD.
+
+
 
   METHOD build_internal_name.
     internal_name = |{ node-text8+40(30) WIDTH = 30  }{ node-text1 }|.
