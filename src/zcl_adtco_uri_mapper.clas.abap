@@ -68,7 +68,7 @@ CLASS zcl_adtco_uri_mapper DEFINITION
         original_object_name TYPE eu_lname
       RETURNING
         VALUE(type)          TYPE string.
-    METHODS get_FG_name_from_include
+    METHODS get_FG_name_from_object
       IMPORTING
         original_object_name TYPE eu_lname
         original_object_type TYPE seu_obj
@@ -289,20 +289,25 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
       WHEN 'FUGR/F'.
         object_name = |SAPL{  original_object_name }|.
       WHEN 'FUGR/I'.
-        object_name = |SAPL{ get_FG_name_from_include(  original_object_type = original_object_type
+        object_name = |SAPL{ get_FG_name_from_object(  original_object_type = original_object_type
                                                         original_object_name = original_object_name ) }|.
       WHEN OTHERS.
         object_name = original_object_name.
     ENDCASE.
   ENDMETHOD.
 
-  METHOD get_FG_name_from_include.
-    CHECK original_object_type EQ 'FUGR/I'.
-    object_name = original_object_name.
-    SHIFT object_name BY 1 PLACES LEFT.
-    DATA(lenght) = strlen( object_name ) - 3.
-    object_name = object_name(lenght).
-
+  METHOD get_FG_name_from_object.
+    CASE original_object_type.
+      WHEN 'FUGR/I'.
+        object_name = original_object_name.
+        SHIFT object_name BY 1 PLACES LEFT.
+        DATA(lenght) = strlen( object_name ) - 3.
+        object_name = object_name(lenght).
+      WHEN 'FUGR/FF'.
+        SELECT SINGLE pname FROM tfdir
+        INTO object_name
+        WHERE funcname = original_object_name.
+    ENDCASE.
   ENDMETHOD.
 
 
@@ -368,7 +373,7 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
   METHOD update_object_name_for_FG.
 
     IF original_object_type CP prefix-fugr_pattern.
-      DATA(fg_name) = get_fg_name_from_include(
+      DATA(fg_name) = get_FG_name_from_object(
         original_object_name = original_object_name
         original_object_type = original_object_type
       ).
