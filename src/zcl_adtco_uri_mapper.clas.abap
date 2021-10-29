@@ -52,11 +52,11 @@ CLASS zcl_adtco_uri_mapper DEFINITION
         VALUE(object_name)   TYPE eu_lname.
     METHODS get_uri_directly
       IMPORTING
-        node                 TYPE snodetext
-        original_object_name TYPE eu_lname
-        original_object_type TYPE seu_obj
+        node                        TYPE snodetext
+        VALUE(original_object_name) TYPE eu_lname
+        original_object_type        TYPE seu_obj
       RETURNING
-        VALUE(uri)           TYPE string.
+        VALUE(uri)                  TYPE string.
     METHODS build_internal_name
       IMPORTING
         node                 TYPE snodetext
@@ -275,12 +275,20 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
         WHERE funcname = original_object_name.
       WHEN 'FUGR/F'.
         object_name = |SAPL{  original_object_name }|.
+      WHEN 'FUGR/I'.
+        object_name = original_object_name.
+        SHIFT object_name BY 1 PLACES LEFT.
+        DATA(lenght) = strlen( object_name ) - 3.
+        object_name = object_name(lenght).
       WHEN OTHERS.
         object_name = original_object_name.
     ENDCASE.
   ENDMETHOD.
 
   METHOD get_uri_directly.
+
+    original_object_name = get_object_name( original_object_name = original_object_name
+                                            original_object_type = original_object_type ).
     IF node-type EQ 'OONT' AND node-text9(4) EQ prefix-reps.
       uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
                                                             }/{ node-text8(40) }/source/main#type=PROG%2FPNY;name={ build_internal_name( node )  }|.
@@ -329,7 +337,7 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
 
     IF uri IS NOT INITIAL.
       IF original_object_type  CP prefix-fugr_pattern.
-       uri = |/sap/bc/adt/functions/groups/{ original_object_name }/{ uri }|.
+        uri = |/sap/bc/adt/functions/groups/{ original_object_name }/{ uri }|.
       ELSE.
         uri = |/sap/bc/adt/programs/{ uri }|.
       ENDIF.
