@@ -328,7 +328,11 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
 
 
     IF uri IS NOT INITIAL.
-      uri = |/sap/bc/adt/programs/{ uri }|.
+      IF original_object_type  CP prefix-fugr_pattern.
+       uri = |/sap/bc/adt/functions/groups/{ original_object_name }/{ uri }|.
+      ELSE.
+        uri = |/sap/bc/adt/programs/{ uri }|.
+      ENDIF.
     ENDIF.
   ENDMETHOD.
 
