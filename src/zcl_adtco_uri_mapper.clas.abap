@@ -14,7 +14,43 @@ CLASS zcl_adtco_uri_mapper DEFINITION
     CONSTANTS: BEGIN OF prefix,
                  reps         TYPE string VALUE 'REPS' ##NO_TEXT,
                  fugr_pattern TYPE string VALUE 'FUGR/*' ##NO_TEXT,
-               END OF prefix.
+                 adt_fg       TYPE string VALUE `/sap/bc/adt/functions/groups/` ##NO_TEXT,
+                 adt_program  TYPE string VALUE `/sap/bc/adt/programs/` ##NO_TEXT,
+               END OF prefix,
+               BEGIN OF object_types,
+                 fm         TYPE string VALUE 'FUGR/FF',
+                 fg         TYPE string VALUE 'FUGR/FF',
+                 fg_include TYPE string VALUE 'FUGR/I',
+                 interface  TYPE string VALUE 'INTF',
+               END OF object_types,
+               BEGIN OF context,
+                 fg                           TYPE string VALUE `/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f` ##NO_TEXT,
+                 program_lcl_method           TYPE string VALUE `/source/main#type=PROG%2FPLM;name=` ##NO_TEXT,
+                 fg_lcl_method                TYPE string VALUE `#type=PROG%2FPLM;name=` ##NO_TEXT,
+                 includes                     TYPE string VALUE 'includes/' ##NO_TEXT,
+                 programs                     TYPE string VALUE 'programs/' ##NO_TEXT,
+                 program_lcl_interface_types  TYPE string VALUE `/source/main#type=PROG%2FPNY;name=` ##NO_TEXT,
+                 program_lcl_attribute        TYPE string VALUE `/source/main#type=PROG%2FPLA;name=` ##NO_TEXT,
+                 fg_lcl_attribute             TYPE string VALUE `#type=PROG%2FPLA;name=` ##NO_TEXT,
+                 program_lcl_type             TYPE string VALUE `/source/main#type=PROG%2FPLY;name=` ##NO_TEXT,
+                 program_lcl_interface        TYPE string VALUE `/source/main#type=PROG%2FPN;name=` ##NO_TEXT,
+                 program_lcl_interface_method TYPE string VALUE `/source/main#type=PROG%2FPNM;name=` ##NO_TEXT,
+                 program_lcl_interface_attrib TYPE string VALUE `/source/main#type=PROG%2FPNA;name=` ##NO_TEXT,
+                 program_lcl_interface_interf TYPE string VALUE `/source/main#type=PROG%2FPNN;name=` ##NO_TEXT,
+               END OF context,
+               BEGIN OF node_types,
+                 lcl_interface_type        TYPE string VALUE 'OONT' ##NO_TEXT,
+                 lcl_interface_method_def  TYPE string VALUE 'OOND' ##NO_TEXT,
+                 lcl_interface_attribute   TYPE string VALUE 'OONA' ##NO_TEXT,
+                 lcl_interface_interface   TYPE string VALUE 'OONN' ##NO_TEXT,
+                 lcl_method_definition     TYPE string VALUE 'OOLD' ##NO_TEXT,
+                 lcl_method_implementation TYPE string VALUE 'OOLI' ##NO_TEXT,
+                 lcl_attribute             TYPE string VALUE 'OOLA' ##NO_TEXT,
+                 lcl_type                  TYPE string VALUE 'OOLT' ##NO_TEXT,
+                 lcl_interface             TYPE string VALUE 'OOLN' ##NO_TEXT,
+               END OF node_types.
+
+
     CLASS-DATA: uri_mapper TYPE REF TO zcl_adtco_uri_mapper.
     METHODS build_object_name
       IMPORTING
@@ -80,6 +116,36 @@ CLASS zcl_adtco_uri_mapper DEFINITION
         original_object_name TYPE eu_lname
       RETURNING
         VALUE(object_name)   TYPE eu_lname.
+    METHODS add_uri_prefix
+      IMPORTING
+        current_uri          TYPE string
+        original_object_type TYPE seu_obj
+        original_object_name TYPE eu_lname
+      RETURNING
+        VALUE(uri)           TYPE string.
+    METHODS get_context_for_node_type
+      IMPORTING
+        node_type           TYPE snodetext-type
+      RETURNING
+        VALUE(node_context) TYPE string.
+    METHODS build_program_uri
+      IMPORTING
+        node                 TYPE snodetext
+        original_object_name TYPE eu_lname
+      RETURNING
+        VALUE(r_result)      TYPE string.
+    METHODS build_fg_uri
+      IMPORTING
+        node                 TYPE snodetext
+        original_object_name TYPE eu_lname
+      RETURNING
+        VALUE(r_result)      TYPE string.
+    METHODS get_context_for_fg_node_type
+      IMPORTING
+        node_type           TYPE snodetext-type
+      RETURNING
+        VALUE(node_context) TYPE string.
+
 
 ENDCLASS.
 
@@ -215,7 +281,6 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
     CASE node->type+1(3).
       WHEN swbm_c_type_cls_local_type OR
            swbm_c_type_cls_local_intf OR
-           swbm_c_type_cls_lintf_meth OR
            swbm_c_type_cls_lintf_attr OR
            swbm_c_type_cls_lintf_event OR
            swbm_c_type_cls_lintf_type OR
@@ -231,7 +296,7 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
         IF node->text8 IS NOT INITIAL.
           SPLIT node->text8 AT '~' INTO DATA(object) object_name.
           IF object_name IS INITIAL.
-            IF strlen( node->text9 ) GE 4 AND node->text9(4) EQ 'INTF'.
+            IF strlen( node->text9 ) GE 4 AND node->text9(4) EQ object_types-interface.
               object_name = node->text9.
               SHIFT object_name BY 4 PLACES LEFT.
             ENDIF.
@@ -258,9 +323,10 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
              swbm_c_type_cls_lintf_attr OR
              swbm_c_type_cls_lintf_event OR
              swbm_c_type_cls_lintf_type OR
-             swbm_c_type_cls_lintf_intf.
+             swbm_c_type_cls_lintf_intf OR
+             swbm_c_type_cls_lintf_meth.
         enclosed_object = node->text8.
-        IF object_type EQ 'FUGR/F'.
+        IF object_type EQ object_types-fg.
           enclosed_object(40) = object_name.
         ENDIF.
       WHEN swbm_c_type_intf_type OR
@@ -282,13 +348,13 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
 
   METHOD get_object_name.
     CASE original_object_type.
-      WHEN 'FUGR/FF'.
+      WHEN object_types-fm.
         SELECT SINGLE pname FROM tfdir
         INTO object_name
         WHERE funcname = original_object_name.
-      WHEN 'FUGR/F'.
+      WHEN object_types-fg.
         object_name = |SAPL{  original_object_name }|.
-      WHEN 'FUGR/I'.
+      WHEN object_types-fg_include.
         object_name = |SAPL{ get_FG_name_from_object(  original_object_type = original_object_type
                                                         original_object_name = original_object_name ) }|.
       WHEN OTHERS.
@@ -298,12 +364,12 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
 
   METHOD get_FG_name_from_object.
     CASE original_object_type.
-      WHEN 'FUGR/I'.
+      WHEN object_types-fg_include.
         object_name = original_object_name.
         SHIFT object_name BY 1 PLACES LEFT.
         DATA(lenght) = strlen( object_name ) - 3.
         object_name = object_name(lenght).
-      WHEN 'FUGR/FF'.
+      WHEN object_types-fm.
         SELECT SINGLE pname FROM tfdir
         INTO object_name
         WHERE funcname = original_object_name.
@@ -314,62 +380,57 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
 
 
   METHOD get_uri_directly.
+
+    CHECK node-text9(4) EQ prefix-reps.
+
+
     original_object_name = update_object_name_for_FG( original_object_type = original_object_type
                                                       original_object_name = original_object_name ).
-    IF node-type EQ 'OONT' AND node-text9(4) EQ prefix-reps.
-      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
-                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPNY;name={ build_internal_name( node )  }|.
-    ELSEIF node-type EQ 'OOND' AND node-text9(4) EQ prefix-reps.
-      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
-                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPNM;name={ build_internal_name( node )  }|.
-    ELSEIF node-type EQ 'OONA' AND node-text9(4) EQ prefix-reps.
-      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
-                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPNA;name={ build_internal_name( node )  }|.
-    ELSEIF node-type EQ 'OONN' AND node-text9(4) EQ prefix-reps.
-      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
-                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPNN;name={ build_internal_name( node )  }|.
-    ELSEIF node-type EQ 'OOLD' AND node-text9(4) EQ prefix-reps.
 
-      IF original_object_type CP prefix-fugr_pattern.
-        uri = |includes/{ node-text8(40) }/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f{ original_object_name }#| &&
-        |type=PROG%2FPLM;name={ escape( val = build_internal_name( node ) format = cl_abap_format=>e_uri )  }|.
-      ELSE.
-        uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
-                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPLM;name={ escape( val = build_internal_name( node ) format = cl_abap_format=>e_uri )  }|.
-      ENDIF.
-    ELSEIF node-type EQ 'OOLI' AND node-text9(4) EQ prefix-reps.
-      IF original_object_type  CP prefix-fugr_pattern.
-        uri = |includes/{ node-text8(40) }/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f{ original_object_name }#| &&
-        |type=PROG%2FPLM;name={ escape( val = build_internal_name( node ) format = cl_abap_format=>e_uri )  }|.
-      ELSE.
-        uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
-                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPLM;name={ build_internal_name( node )  }|.
-      ENDIF.
-    ELSEIF node-type EQ 'OOLA' AND node-text9(4) EQ prefix-reps.
-      IF original_object_type CP prefix-fugr_pattern.
-        uri = |includes/{ node-text8(40) }/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f{ original_object_name }#| &&
-   |type=PROG%2FPLA;name={ escape( val = build_internal_name( node ) format = cl_abap_format=>e_uri )  }|.
-      ELSE.
-        uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
-                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPLA;name={ build_internal_name( node )  }|.
-      ENDIF.
-    ELSEIF node-type EQ 'OOLT' AND node-text9(4) EQ prefix-reps.
-      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
-                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPLY;name={ build_internal_name( node )  }|.
-    ELSEIF node-type EQ 'OOLN' AND node-text9(4) EQ prefix-reps.
-      uri = |{ get_program_or_include( node = node original_object_name = original_object_name )
-                                                            }/{ node-text8(40) }/source/main#type=PROG%2FPN;name={  node-text1  }|.
-    ENDIF.
 
+    uri = SWITCH #( node-type WHEN node_types-lcl_interface_type OR
+                                   node_types-lcl_interface_method_def OR
+                                   node_types-lcl_interface_attribute OR
+                                   node_types-lcl_interface_interface OR
+                                   node_types-lcl_type OR
+                                   node_types-lcl_interface
+                                                      THEN build_program_uri( node = node original_object_name = original_object_name )
+                              WHEN node_types-lcl_method_definition OR
+                                   node_types-lcl_method_implementation OR
+                                   node_types-lcl_attribute
+                                                    THEN COND #( WHEN original_object_type CP prefix-fugr_pattern
+                                                                      THEN build_fg_uri( node = node original_object_name = original_object_name )
+                                                                 ELSE build_program_uri( node = node original_object_name = original_object_name ) )
+                              ELSE space ).
 
     IF uri IS NOT INITIAL.
-      IF original_object_type  CP prefix-fugr_pattern.
-        uri = |/sap/bc/adt/functions/groups/{ original_object_name }/{ uri }|.
-      ELSE.
-        uri = |/sap/bc/adt/programs/{ uri }|.
-      ENDIF.
+      uri = add_uri_prefix(
+        current_uri          = uri
+        original_object_type = original_object_type
+        original_object_name = original_object_name ).
     ENDIF.
   ENDMETHOD.
+
+  METHOD build_fg_uri.
+    r_result = |{ context-includes }{ node-text8(40) }{ context-fg }{ original_object_name }{ get_context_for_fg_node_type( node-type ) }{ build_internal_name( node ) }|.
+  ENDMETHOD.
+
+  METHOD build_program_uri.
+    r_result = |{ get_program_or_include( node = node original_object_name = original_object_name )
+                                                            }{ node-text8(40) }{ get_context_for_node_type( node-type ) }{ build_internal_name( node )  }|.
+  ENDMETHOD.
+
+  METHOD add_uri_prefix.
+
+    IF original_object_type  CP prefix-fugr_pattern.
+      uri = |{ prefix-adt_fg }{ original_object_name }/{ current_uri }|.
+    ELSE.
+      uri = |{ prefix-adt_program }{ current_uri }|.
+    ENDIF.
+
+  ENDMETHOD.
+
+
 
   METHOD update_object_name_for_FG.
 
@@ -392,7 +453,7 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
 
 
   METHOD build_internal_name.
-    internal_name = |{ node-text8+40(30) WIDTH = 30  }{ node-text1 }|.
+    internal_name = escape( val =  |{ node-text8+40(30) WIDTH = 30  }{ node-text1 }| format = cl_abap_format=>e_uri ).
   ENDMETHOD.
 
 
@@ -402,10 +463,29 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
     program_name = node-text8.
     SELECT SINGLE subc INTO @program_type FROM trdir WHERE name EQ @program_name.
     IF program_type EQ 'I'.
-      type = 'includes'.
+      type = context-includes.
     ELSE.
-      type = 'programs'.
+      type = context-programs.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD get_context_for_node_type.
+    node_context = SWITCH #( node_type WHEN node_types-lcl_interface_type THEN context-program_lcl_interface_types
+                                       WHEN node_types-lcl_interface_method_def THEN context-program_lcl_interface_method
+                                       WHEN node_types-lcl_interface_attribute THEN context-program_lcl_interface_attrib
+                                       WHEN node_types-lcl_interface_interface THEN context-program_lcl_interface_interf
+                                       WHEN node_types-lcl_type THEN context-program_lcl_type
+                                       WHEN node_types-lcl_interface THEN context-program_lcl_interface
+                                       WHEN node_types-lcl_attribute THEN context-program_lcl_attribute
+                                       WHEN node_types-lcl_method_implementation THEN context-program_lcl_method ).
+  ENDMETHOD.
+
+
+  METHOD get_context_for_fg_node_type.
+    node_context = SWITCH #( Node_type WHEN node_types-lcl_attribute THEN context-fg_lcl_attribute
+                                       WHEN node_types-lcl_method_implementation THEN context-fg_lcl_method
+                                       WHEN node_types-lcl_method_definition THEN context-fg_lcl_method  ).
   ENDMETHOD.
 
 ENDCLASS.
