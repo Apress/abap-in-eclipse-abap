@@ -19,7 +19,7 @@ CLASS zcl_adtco_uri_mapper DEFINITION
                END OF prefix,
                BEGIN OF object_types,
                  fm         TYPE string VALUE 'FUGR/FF',
-                 fg         TYPE string VALUE 'FUGR/FF',
+                 fg         TYPE string VALUE 'FUGR/F',
                  fg_include TYPE string VALUE 'FUGR/I',
                  interface  TYPE string VALUE 'INTF',
                END OF object_types,
