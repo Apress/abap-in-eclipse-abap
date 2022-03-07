@@ -44,7 +44,26 @@ ENDCLASS.
 
 
 
-CLASS zcl_adtco_tree_creator IMPLEMENTATION.
+CLASS ZCL_ADTCO_TREE_CREATOR IMPLEMENTATION.
+
+
+  METHOD add_sublcasses.
+    CHECK original_object_type EQ 'CLAS/OC'.
+
+    ASSIGN tree[ type = 'COU' ] TO FIELD-SYMBOL(<parent>).
+    IF sy-subrc EQ 0.
+      DATA(counter) = get_counter( tree ).
+      DATA(subclasses) = get_subclasses( CONV #( original_object_name ) ).
+      LOOP AT subclasses ASSIGNING FIELD-SYMBOL(<subclass>).
+        IF <parent>-child IS INITIAL.
+          <parent>-child = counter.
+        ENDIF.
+        APPEND VALUE #( text1 = <subclass>-clsname parent = <parent>-id id = counter type = 'OOC' text2 = get_class_description( <subclass>-clsname )  ) TO tree.
+        ADD 1 TO counter.
+      ENDLOOP.
+    ENDIF.
+  ENDMETHOD.
+
 
   METHOD create_tree.
     CALL FUNCTION 'WB_ANYTYPE_RETURN_OBJECT_LIST'
@@ -78,8 +97,18 @@ CLASS zcl_adtco_tree_creator IMPLEMENTATION.
                     CHANGING  tree                 = tree ).
   ENDMETHOD.
 
-  METHOD get_object_type.
-    object_type = original_object_type(4).
+
+  METHOD get_class_description.
+    TRY.
+        DATA(class) = CAST cl_oo_class( cl_oo_class=>get_instance( class_name ) ).
+        description = class->class-descript.
+      CATCH cx_class_not_existent ##no_handler.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD get_counter.
+    counter = tree[ lines( tree ) ]-id + 1.
   ENDMETHOD.
 
 
@@ -103,31 +132,8 @@ CLASS zcl_adtco_tree_creator IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD add_sublcasses.
-    CHECK original_object_type EQ 'CLAS/OC'.
-
-    ASSIGN tree[ type = 'COU' ] TO FIELD-SYMBOL(<parent>).
-    IF sy-subrc EQ 0.
-      DATA(counter) = get_counter( tree ).
-      DATA(subclasses) = get_subclasses( CONV #( original_object_name ) ).
-      LOOP AT subclasses ASSIGNING FIELD-SYMBOL(<subclass>).
-        IF <parent>-child IS INITIAL.
-          <parent>-child = counter.
-        ENDIF.
-        APPEND VALUE #( text1 = <subclass>-clsname parent = <parent>-id id = counter type = 'OOC' text2 = get_class_description( <subclass>-clsname )  ) TO tree.
-        ADD 1 TO counter.
-      ENDLOOP.
-    ENDIF.
-  ENDMETHOD.
-
-  METHOD get_counter.
-    counter = tree[ lines( tree ) ]-id + 1.
-  ENDMETHOD.
-
-
-  METHOD get_class_description.
-    DATA(class) = CAST cl_oo_class( cl_oo_class=>get_instance( class_name ) ).
-    description = class->class-descript.
+  METHOD get_object_type.
+    object_type = original_object_type(4).
   ENDMETHOD.
 
 
@@ -135,5 +141,4 @@ CLASS zcl_adtco_tree_creator IMPLEMENTATION.
     subclasses =  CAST cl_oo_class( cl_oo_class=>get_instance( CONV #( class_name ) ) )->get_subclasses( ).
     SORT subclasses BY clsname.
   ENDMETHOD.
-
 ENDCLASS.
