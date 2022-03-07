@@ -95,6 +95,8 @@ CLASS zcl_adtco_tree_creator IMPLEMENTATION.
         SHIFT object_name BY 1 PLACES LEFT.
         data(lenght) = strlen( object_name ) - 3.
         object_name = object_name(lenght).
+      WHEN 'REPS'.
+        object_name+40 = original_object_name.
       WHEN OTHERS.
         object_name = original_object_name.
     ENDCASE.
