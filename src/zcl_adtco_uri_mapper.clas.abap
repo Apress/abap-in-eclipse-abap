@@ -13,6 +13,7 @@ CLASS zcl_adtco_uri_mapper DEFINITION
   PRIVATE SECTION.
     CONSTANTS: BEGIN OF prefix,
                  reps         TYPE string VALUE 'REPS' ##NO_TEXT,
+                 type         TYPE string VALUE 'TYPE' ##NO_TEXT,
                  fugr_pattern TYPE string VALUE 'FUGR/*' ##NO_TEXT,
                  adt_fg       TYPE string VALUE `/sap/bc/adt/functions/groups/` ##NO_TEXT,
                  adt_program  TYPE string VALUE `/sap/bc/adt/programs/` ##NO_TEXT,
@@ -145,6 +146,11 @@ CLASS zcl_adtco_uri_mapper DEFINITION
         node_type           TYPE snodetext-type
       RETURNING
         VALUE(node_context) TYPE string.
+    METHODS get_fg_main_program_name
+      IMPORTING
+        function_group      TYPE eu_lname
+      RETURNING
+        VALUE(main_program) TYPE char70.
 
 
 ENDCLASS.
@@ -327,7 +333,7 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
              swbm_c_type_cls_lintf_meth.
         enclosed_object = node->text8.
         IF object_type EQ object_types-fg.
-          enclosed_object(40) = object_name.
+          enclosed_object(40) = get_fg_main_program_name( object_name ).
         ENDIF.
       WHEN swbm_c_type_intf_type OR
            swbm_c_type_intf_attribute.
@@ -336,6 +342,10 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
         ELSE.
           enclosed_object = object_name.
         ENDIF.
+*      WHEN swbm_c_type_prg_type_group OR swbm_c_type_prg_type.
+*        IF object_type EQ object_types-fg.
+*          enclosed_object = get_fg_main_program_name( object_name ).
+*        ENDIF.
       WHEN OTHERS.
         enclosed_object = get_object_name(
           original_object_name = object_name
@@ -346,6 +356,23 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
 
   ENDMETHOD.
 
+  METHOD get_fg_main_program_name.
+
+    IF function_group(1) EQ '/'.
+      DATA(regex) = NEW cl_abap_regex(   pattern       =  '\/.*\/(.*)' ).
+      DATA(matcher) = regex->create_matcher( text = function_group ).
+      IF matcher->match( ).
+        DATA(offset) = matcher->get_offset( index = 1 ).
+        main_program(40) = |{ function_group+0(offset) }SAPL{ matcher->get_submatch( index = 1 ) }|.
+      ENDIF.
+    ELSE.
+      main_program(40) = |SAPL{ function_group }|.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+
   METHOD get_object_name.
     CASE original_object_type.
       WHEN object_types-fm.
@@ -353,10 +380,18 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
         INTO object_name
         WHERE funcname = original_object_name.
       WHEN object_types-fg.
-        object_name = |SAPL{  original_object_name }|.
+        object_name = get_fg_main_program_name( original_object_name ).
+*        SELECT SINGLE pname FROM tfdir
+*        INTO object_name
+*        WHERE funcname = original_object_name.
       WHEN object_types-fg_include.
-        object_name = |SAPL{ get_FG_name_from_object(  original_object_type = original_object_type
-                                                        original_object_name = original_object_name ) }|.
+        DATA string_name TYPE string.
+        CALL FUNCTION 'Z_ADTCO_GET_INC_MASTER_PROGRAM'
+          EXPORTING
+            include = CONV string( original_object_name )
+          IMPORTING
+            master  = string_name.
+        object_name = get_fg_main_program_name( conv #( string_name ) ).
       WHEN OTHERS.
         object_name = original_object_name.
     ENDCASE.
@@ -366,14 +401,18 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
     CASE original_object_type.
       WHEN object_types-fg_include.
         object_name = original_object_name.
-        SHIFT object_name BY 1 PLACES LEFT.
+        IF object_name(1) EQ '/'.
+          REPLACE FIRST OCCURRENCE OF REGEX '\/L' IN object_name WITH '/'.
+        ELSE.
+          SHIFT object_name BY 1 PLACES LEFT.
+        ENDIF.
         DATA(lenght) = strlen( object_name ) - 3.
         object_name = object_name(lenght).
       WHEN object_types-fm.
         SELECT SINGLE pname FROM tfdir
         INTO object_name
         WHERE funcname = original_object_name.
-        SHIFT object_name BY 4 PLACES LEFT.
+        REPLACE FIRST OCCURRENCE OF 'SAPL' IN object_name WITH ''.
     ENDCASE.
   ENDMETHOD.
 
@@ -381,7 +420,8 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
 
   METHOD get_uri_directly.
 
-    CHECK node-text9(4) EQ prefix-reps.
+    CHECK node-text9(4) EQ prefix-reps OR
+          node-text9(4) EQ prefix-type.
 
 
     original_object_name = update_object_name_for_FG( original_object_type = original_object_type
@@ -401,6 +441,8 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
                                                     THEN COND #( WHEN original_object_type CP prefix-fugr_pattern
                                                                       THEN build_fg_uri( node = node original_object_name = original_object_name )
                                                                  ELSE build_program_uri( node = node original_object_name = original_object_name ) )
+                              WHEN 'OPG' THEN |source/main#type=FUGR/PG;name={ node-text1 }|
+
                               ELSE space ).
 
     IF uri IS NOT INITIAL.

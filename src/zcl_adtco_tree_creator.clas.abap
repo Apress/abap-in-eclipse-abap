@@ -44,7 +44,7 @@ ENDCLASS.
 
 
 
-CLASS ZCL_ADTCO_TREE_CREATOR IMPLEMENTATION.
+CLASS zcl_adtco_tree_creator IMPLEMENTATION.
 
 
   METHOD add_sublcasses.
@@ -80,7 +80,7 @@ CLASS ZCL_ADTCO_TREE_CREATOR IMPLEMENTATION.
       IF object_type EQ 'REPS'.
         CALL FUNCTION 'WB_TREE_RETURN_OBJECT_LIST'
           EXPORTING
-            treename     = conv eu_t_name(  |PG_{ object_name }| )
+            treename     = CONV eu_t_name( |PG_{ object_name }| )
             refresh      = 'X'
           TABLES
             nodetab      = tree
@@ -88,7 +88,7 @@ CLASS ZCL_ADTCO_TREE_CREATOR IMPLEMENTATION.
             not_existing = 1
             OTHERS       = 2.
         IF sy-subrc <> 0.
-            MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+          MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
         ENDIF.
       ENDIF.
     ENDIF.
@@ -118,13 +118,24 @@ CLASS ZCL_ADTCO_TREE_CREATOR IMPLEMENTATION.
         SELECT SINGLE pname FROM tfdir
         INTO object_name
         WHERE funcname = original_object_name.
-        SHIFT object_name BY 4 PLACES LEFT.
+        REPLACE FIRST OCCURRENCE OF 'SAPL' IN object_name WITH ''.
       WHEN 'FUGR/I'.
         object_name = original_object_name.
-        SHIFT object_name BY 1 PLACES LEFT.
-        data(lenght) = strlen( object_name ) - 3.
+        IF object_name(1) EQ '/'.
+          DATA(regex) = NEW cl_abap_regex(   pattern       =  '(\/.*\/)L(.*)' ).
+          DATA(matcher) = regex->create_matcher( text = object_name ).
+          IF matcher->match( ).
+            object_name = |{ matcher->get_submatch( index = 1 ) }{ matcher->get_submatch( index = 2 ) }|.
+          ENDIF.
+        ELSE.
+          SHIFT object_name BY 1 PLACES LEFT.
+        ENDIF.
+        DATA(lenght) = strlen( object_name ) - 3.
         object_name = object_name(lenght).
       WHEN 'REPS'.
+        SELECT SINGLE master INTO @object_name
+          FROM d010inc
+          WHERE include EQ @original_object_name.
         object_name+40 = original_object_name.
       WHEN OTHERS.
         object_name = original_object_name.
