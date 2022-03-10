@@ -25,6 +25,7 @@ CLASS zcl_adtco_uri_mapper DEFINITION
                  fg_include     TYPE string VALUE 'FUGR/I',
                  interface      TYPE string VALUE 'INTF',
                  report_include TYPE string VALUE 'REPS',
+                 program_include TYPE string VALUE 'PROG/I',
                END OF object_types,
                BEGIN OF context,
                  fg                           TYPE string VALUE `/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f` ##NO_TEXT,
@@ -410,7 +411,7 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
           IMPORTING
             master  = string_name.
         object_name = get_fg_main_program_name( CONV #( string_name ) ).
-      WHEN object_types-report_include.
+      WHEN object_types-report_include or object_types-program_include.
         CALL FUNCTION 'Z_ADTCO_GET_INC_MASTER_PROGRAM'
           EXPORTING
             include = CONV string( original_object_name )
