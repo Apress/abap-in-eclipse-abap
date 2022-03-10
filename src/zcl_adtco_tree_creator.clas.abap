@@ -132,7 +132,7 @@ CLASS zcl_adtco_tree_creator IMPLEMENTATION.
         ENDIF.
         DATA(lenght) = strlen( object_name ) - 3.
         object_name = object_name(lenght).
-      WHEN 'REPS'.
+      WHEN 'REPS' OR 'PROG/I'.
         SELECT SINGLE master INTO @object_name
           FROM d010inc
           WHERE include EQ @original_object_name.
