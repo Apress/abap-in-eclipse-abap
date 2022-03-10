@@ -25,6 +25,13 @@ FUNCTION z_adtco_get_inc_master_program.
       ELSE.
         SHIFT master BY 4 PLACES LEFT.
       ENDIF.
+    ELSEIF type EQ 'K'.
+      DATA offset TYPE i.
+      FIND FIRST OCCURRENCE OF '=' IN master MATCH OFFSET offset.
+      IF sy-subrc EQ 0.
+        master = master(offset).
+      ENDIF.
+      master_type = 'REPS'.
     ELSE.
       master_type = 'PROG/I'.
     ENDIF.

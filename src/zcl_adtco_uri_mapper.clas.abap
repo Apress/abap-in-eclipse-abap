@@ -15,14 +15,16 @@ CLASS zcl_adtco_uri_mapper DEFINITION
                  reps         TYPE string VALUE 'REPS' ##NO_TEXT,
                  type         TYPE string VALUE 'TYPE' ##NO_TEXT,
                  fugr_pattern TYPE string VALUE 'FUGR/*' ##NO_TEXT,
+                 class_pattern TYPE string VALUE 'CLAS*' ##NO_TEXT,
                  adt_fg       TYPE string VALUE `/sap/bc/adt/functions/groups/` ##NO_TEXT,
                  adt_program  TYPE string VALUE `/sap/bc/adt/programs/` ##NO_TEXT,
                END OF prefix,
                BEGIN OF object_types,
-                 fm         TYPE string VALUE 'FUGR/FF',
-                 fg         TYPE string VALUE 'FUGR/F',
-                 fg_include TYPE string VALUE 'FUGR/I',
-                 interface  TYPE string VALUE 'INTF',
+                 fm             TYPE string VALUE 'FUGR/FF',
+                 fg             TYPE string VALUE 'FUGR/F',
+                 fg_include     TYPE string VALUE 'FUGR/I',
+                 interface      TYPE string VALUE 'INTF',
+                 report_include TYPE string VALUE 'REPS',
                END OF object_types,
                BEGIN OF context,
                  fg                           TYPE string VALUE `/source/main?context=%2fsap%2fbc%2fadt%2ffunctions%2fgroups%2f` ##NO_TEXT,
@@ -151,6 +153,14 @@ CLASS zcl_adtco_uri_mapper DEFINITION
         function_group      TYPE eu_lname
       RETURNING
         VALUE(main_program) TYPE char70.
+    METHODS adapt_uri_for_subclasses
+      IMPORTING
+        object_type TYPE seu_obj
+        value(object_name) TYPE eu_lname
+        node        TYPE snodetext
+        objtype     TYPE seu_objtyp
+      CHANGING
+        uri         TYPE string.
 
 
 ENDCLASS.
@@ -215,13 +225,14 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
           TRY.
               DATA(adt_reference) = cl_adt_tools_core_factory=>get_instance( )->get_uri_mapper( )->map_wb_request_to_objref( wb_request ).
               uri = adt_reference->ref_data-uri.
-
-              object_name = get_origin_class_name( node       = node
-                                                   class_name = object_name
-                                                   objtype    = objtype ).
-              update_original_class_name( EXPORTING class_name = object_name
-                                          CHANGING  uri        = uri ).
-
+              adapt_uri_for_subclasses(
+                  EXPORTING
+                    object_type = object_type
+                    object_name = object_name
+                    node        = node
+                    objtype     = objtype
+                  CHANGING
+                    uri         = uri ).
             CATCH cx_adt_uri_mapping.
               uri = get_uri_directly( node                 = node
                                       original_object_name = object_name
@@ -236,6 +247,20 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
       ENDIF.
     ENDIF.
   ENDMETHOD.
+
+  METHOD adapt_uri_for_subclasses.
+
+    IF object_type CP prefix-class_pattern.
+      object_name = get_origin_class_name( node       = node
+                                           class_name = object_name
+                                           objtype    = objtype ).
+      update_original_class_name( EXPORTING class_name = object_name
+                                  CHANGING  uri        = uri ).
+    ENDIF.
+
+  ENDMETHOD.
+
+
 
   METHOD get_origin_class_name.
     origin_class_name = class_name.
@@ -342,10 +367,6 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
         ELSE.
           enclosed_object = object_name.
         ENDIF.
-*      WHEN swbm_c_type_prg_type_group OR swbm_c_type_prg_type.
-*        IF object_type EQ object_types-fg.
-*          enclosed_object = get_fg_main_program_name( object_name ).
-*        ENDIF.
       WHEN OTHERS.
         enclosed_object = get_object_name(
           original_object_name = object_name
@@ -381,9 +402,6 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
         WHERE funcname = original_object_name.
       WHEN object_types-fg.
         object_name = get_fg_main_program_name( original_object_name ).
-*        SELECT SINGLE pname FROM tfdir
-*        INTO object_name
-*        WHERE funcname = original_object_name.
       WHEN object_types-fg_include.
         DATA string_name TYPE string.
         CALL FUNCTION 'Z_ADTCO_GET_INC_MASTER_PROGRAM'
@@ -391,7 +409,15 @@ CLASS zcl_adtco_uri_mapper IMPLEMENTATION.
             include = CONV string( original_object_name )
           IMPORTING
             master  = string_name.
-        object_name = get_fg_main_program_name( conv #( string_name ) ).
+        object_name = get_fg_main_program_name( CONV #( string_name ) ).
+      WHEN object_types-report_include.
+        CALL FUNCTION 'Z_ADTCO_GET_INC_MASTER_PROGRAM'
+          EXPORTING
+            include = CONV string( original_object_name )
+          IMPORTING
+            master  = string_name.
+        object_name = COND #( WHEN string_Name IS NOT INITIAL THEN string_name
+                              ELSE original_object_name ).
       WHEN OTHERS.
         object_name = original_object_name.
     ENDCASE.
