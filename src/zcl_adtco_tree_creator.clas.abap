@@ -40,6 +40,11 @@ CLASS zcl_adtco_tree_creator DEFINITION
         class_name        TYPE string
       RETURNING
         VALUE(subclasses) TYPE seo_relkeys.
+    METHODS actualize_program_tree
+      IMPORTING
+        object_type      TYPE seu_obj
+        object_name      TYPE eu_lname
+        tree_object_type TYPE seu_obj.
 ENDCLASS.
 
 
@@ -66,9 +71,13 @@ CLASS zcl_adtco_tree_creator IMPLEMENTATION.
 
 
   METHOD create_tree.
+    DATA(tree_object_type) = get_object_type( object_type ).
+    actualize_program_tree(  object_type      = object_type
+                             object_name      = object_name
+                             tree_object_type = tree_object_type ).
     CALL FUNCTION 'WB_ANYTYPE_RETURN_OBJECT_LIST'
       EXPORTING
-        p_object_type        = get_object_type( object_type )
+        p_object_type        = tree_object_type
         p_object_name        = CONV eu_lname( get_object_name( original_object_name = object_name
                                                              original_object_type = object_type ) )
       TABLES
@@ -96,6 +105,22 @@ CLASS zcl_adtco_tree_creator IMPLEMENTATION.
                               original_object_type = object_type
                     CHANGING  tree                 = tree ).
   ENDMETHOD.
+
+  METHOD actualize_program_tree.
+
+    IF tree_object_type CP 'PROG*'
+    OR tree_object_type CP 'REPS*'.
+      CALL FUNCTION 'WB_TREE_ACTUALIZE'
+        EXPORTING
+          tree_name              = CONV eu_lname( |PG_{ get_object_name( original_object_name = object_name
+                                                             original_object_type = object_type ) }| )
+          without_crossreference = abap_true
+          with_tcode_index       = abap_true.
+    ENDIF.
+
+  ENDMETHOD.
+
+
 
 
   METHOD get_class_description.
