@@ -1,4 +1,4 @@
-FUNCTION z_adtco_get_inc_master_program.
+FUNCTION Z_ADTCO_GET_INC_MASTER_PROGRAM.
 *"----------------------------------------------------------------------
 *"*"Local Interface:
 *"  IMPORTING
@@ -15,7 +15,7 @@ FUNCTION z_adtco_get_inc_master_program.
       INTO @DATA(type)
       WHERE name = @master.
     IF type EQ 'F'.
-      master_type = 'FUGR/I'.
+      master_type = 'FUGR/F'.
       IF master(1) EQ '/'.
         DATA(regex) = NEW cl_abap_regex(   pattern       =  '(\/.*\/)SAPL(.*)' ).
         DATA(matcher) = regex->create_matcher( text = master ).
@@ -31,9 +31,9 @@ FUNCTION z_adtco_get_inc_master_program.
       IF sy-subrc EQ 0.
         master = master(offset).
       ENDIF.
-      master_type = 'REPS'.
+      master_type = 'CLAS/OC'.
     ELSE.
-      master_type = 'PROG/I'.
+      master_type = 'PROG/P'.
     ENDIF.
   ENDIF.
 
